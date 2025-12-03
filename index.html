@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solugen RAG Search</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background-color: #f4f4f9; }
+        .search-container { display: flex; gap: 10px; margin-bottom: 2rem; }
+        input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        
+        .result-card { background: white; padding: 1.5rem; margin-bottom: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
+        .meta { font-size: 0.9rem; color: #666; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+        .score { background-color: #e2e6ea; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; }
+        .content { line-height: 1.6; white-space: pre-wrap; } /* Preserves newlines in text */
+    </style>
+</head>
+<body>
+
+    <h1>📚 Book Wisdom Search</h1>
+    <p>Ask a semantic question about the books in our library.</p>
+    
+    <div class="search-container">
+        <input type="text" id="queryInput" placeholder="e.g., Why should I be happy first?">
+        <button onclick="performSearch()">Search</button>
+    </div>
+
+    <div id="resultsContainer"></div>
+
+    <script>
+        async function performSearch() {
+            const query = document.getElementById('queryInput').value;
+            const container = document.getElementById('resultsContainer');
+            
+            if (!query) return;
+
+            // 1. Show Loading State
+            container.innerHTML = '<p>Searching library...</p>';
+
+            try {
+                // 2. Call your FastAPI Backend
+                const response = await fetch('http://127.0.0.1:8000/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const results = await response.json();
+
+                // 3. Clear Container
+                container.innerHTML = '';
+
+                // 4. Render Results
+                results.forEach((item, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    
+                    // Create nice header with Metadata and Score
+                    const title = item.metadata.title || "Unknown Title";
+                    const author = item.metadata.author || "Unknown Author";
+                    
+                    card.innerHTML = `
+                        <div class="meta">
+                            <span><strong>${title}</strong> by ${author}</span>
+                            <span class="score">Dist: ${item.similarity_score}</span>
+                        </div>
+                        <div class="content">${item.content}</div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                if (results.length === 0) {
+                    container.innerHTML = '<p>No relevant books found.</p>';
+                }
+
+            } catch (error) {
+                console.error("Error:", error);
+                container.innerHTML = '<p style="color:red">Error connecting to server. Is main.py running?</p>';
+            }
+        }
+
+        // Allow pressing "Enter" to search
+        document.getElementById("queryInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") performSearch();
+        });
+    </script>
+
+</body>
+</html>
